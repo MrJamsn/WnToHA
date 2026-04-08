@@ -1,0 +1,5 @@
+{
+  "name": "Wiener Netze Smart Meter",
+  "domains": ["sensor"],
+  "render_readme": true
+}

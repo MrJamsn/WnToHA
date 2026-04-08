@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wiener Netze Smart Meter",
+        "description": "Zugangsdaten aus dem Smart Meter Business Portal und dem WSTW Developer Portal.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "api_key": "API Key (x-Gateway-APIKey)",
+          "scan_interval": "Aktualisierungsintervall (Minuten)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen - API nicht erreichbar",
+      "invalid_auth": "Authentifizierung fehlgeschlagen - Zugangsdaten prüfen",
+      "unknown": "Unbekannter Fehler"
+    },
+    "abort": {
+      "already_configured": "Wiener Netze Smart Meter ist bereits konfiguriert"
+    }
+  }
+}

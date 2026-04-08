@@ -1,0 +1,11 @@
+{
+  "domain": "wienernetze_smartmeter",
+  "name": "Wiener Netze Smart Meter",
+  "version": "1.0.0",
+  "documentation": "https://github.com/YOUR_USERNAME/wienernetze-smartmeter-ha",
+  "issue_tracker": "https://github.com/YOUR_USERNAME/wienernetze-smartmeter-ha/issues",
+  "requirements": ["wiener-netze-smart-meter-api>=0.1.4"],
+  "codeowners": ["@YOUR_USERNAME"],
+  "config_flow": true,
+  "iot_class": "cloud_polling"
+}
