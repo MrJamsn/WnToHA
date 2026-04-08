@@ -168,7 +168,6 @@ async def async_backfill_statistics(
     try:
         raw = await hass.async_add_executor_job(
             lambda: client.get_quarter_hour_values(
-                zaehlpunkt=zp_nummer,
                 date_from=von,
                 date_to=bis,
             )

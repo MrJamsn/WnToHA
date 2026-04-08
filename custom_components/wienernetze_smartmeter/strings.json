@@ -5,8 +5,6 @@
         "title": "Wiener Netze Smart Meter",
         "description": "Zugangsdaten aus dem Smart Meter Business Portal und dem WSTW Developer Portal.",
         "data": {
-          "username": "Benutzername (E-Mail)",
-          "password": "Passwort",
           "client_id": "Client ID",
           "client_secret": "Client Secret",
           "api_key": "API Key (x-Gateway-APIKey)",

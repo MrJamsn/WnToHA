@@ -44,8 +44,6 @@ Einstellungen -> Gerate & Dienste -> Integration hinzufugen -> "Wiener Netze Sma
 
 | Feld | Pflicht | Quelle / Beschreibung |
 |------|---------|-----------------------|
-| Benutzername (E-Mail) | Ja | Login-E-Mail des Mein Wiener Netze Portals |
-| Passwort | Ja | Passwort des Mein Wiener Netze Portals |
 | Client ID | Ja | smartmeter-business.wienernetze.at/einstellungen |
 | Client Secret | Ja | smartmeter-business.wienernetze.at/einstellungen |
 | API Key | Ja | api-portal.wienerstadtwerke.at -> Applikation -> Details |

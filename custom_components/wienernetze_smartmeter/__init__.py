@@ -18,17 +18,13 @@ PLATFORMS = ["sensor"]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Wiener Netze Smart Meter from a config entry."""
-    from wiener_netze_smart_meter_api import WNAPIClient
+    from .api import WNAPIClient
 
     try:
-        client = await hass.async_add_executor_job(
-            lambda: WNAPIClient(
-                username=entry.data["username"],
-                password=entry.data["password"],
-                client_id=entry.data["client_id"],
-                client_secret=entry.data["client_secret"],
-                api_key=entry.data["api_key"],
-            )
+        client = WNAPIClient(
+            client_id=entry.data["client_id"],
+            client_secret=entry.data["client_secret"],
+            api_key=entry.data["api_key"],
         )
     except Exception as exc:
         raise ConfigEntryNotReady(f"Cannot connect to Wiener Netze API: {exc}") from exc

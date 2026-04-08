@@ -17,8 +17,6 @@ _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required("username"): str,
-        vol.Required("password"): str,
         vol.Required("client_id"): str,
         vol.Required("client_secret"): str,
         vol.Required("api_key"): str,
@@ -32,17 +30,13 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate credentials by fetching Zaehlpunkte."""
-    from wiener_netze_smart_meter_api import WNAPIClient
+    from .api import WNAPIClient
 
     try:
-        client = await hass.async_add_executor_job(
-            lambda: WNAPIClient(
-                username=data["username"],
-                password=data["password"],
-                client_id=data["client_id"],
-                client_secret=data["client_secret"],
-                api_key=data["api_key"],
-            )
+        client = WNAPIClient(
+            client_id=data["client_id"],
+            client_secret=data["client_secret"],
+            api_key=data["api_key"],
         )
         zaehlpunkte = await hass.async_add_executor_job(client.get_anlagendaten)
     except Exception as exc:
