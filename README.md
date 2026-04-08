@@ -1,5 +1,7 @@
 # Wiener Netze Smart Meter - Home Assistant Integration
 
+> **Hinweis:** Diese Integration wurde vibe-coded – mit Unterstützung von KI-Tools entwickelt. Der Code funktioniert, aber lies ihn mit gesundem Menschenverstand. ;)
+
 Custom Integration fur Home Assistant zur Einbindung des Wiener Netze Smart Meters uber die offizielle Public API.
 
 ## Features
@@ -40,12 +42,15 @@ Zugang zur offiziellen Wiener Netze Smart Meter Public API:
 
 Einstellungen -> Gerate & Dienste -> Integration hinzufugen -> "Wiener Netze Smart Meter"
 
-| Feld | Quelle |
-|------|--------|
-| Client ID | smartmeter-business.wienernetze.at/einstellungen |
-| Client Secret | smartmeter-business.wienernetze.at/einstellungen |
-| API Key | api-portal.wienerstadtwerke.at -> Applikation -> Details |
-| Intervall | 15-60 Minuten (Standard: 30) |
+| Feld | Pflicht | Quelle / Beschreibung |
+|------|---------|-----------------------|
+| Benutzername (E-Mail) | Ja | Login-E-Mail des Mein Wiener Netze Portals |
+| Passwort | Ja | Passwort des Mein Wiener Netze Portals |
+| Client ID | Ja | smartmeter-business.wienernetze.at/einstellungen |
+| Client Secret | Ja | smartmeter-business.wienernetze.at/einstellungen |
+| API Key | Ja | api-portal.wienerstadtwerke.at -> Applikation -> Details |
+| Zählerpunktnummer | Nein | Spezifischen Zählerpunkt auswählen (leer = alle) |
+| Intervall | Nein | 15–60 Minuten (Standard: 30) |
 
 ## Sensoren
 
@@ -66,6 +71,10 @@ Im Energy Dashboard: Einstellungen -> Energy -> Netzverbrauch -> Sensor hinzufug
 - Wiener Netze liefert Messwerte typischerweise mit 1-24h Verzogerung
 - Timestamps sind immer in Europe/Vienna (MESZ-aware)
 - Token-Erneuerung erfolgt automatisch (Token gultig 3600s)
+
+## Danksagung
+
+Ein großes Dankeschön an [tschoerk/Wiener-Netze-Smart-Meter-API](https://github.com/tschoerk/Wiener-Netze-Smart-Meter-API) – dieses Repo war der Ausgangspunkt und die Inspiration für diese Integration. Die API-Anbindung baut auf der dort dokumentierten Schnittstelle auf.
 
 ## Lizenz
 

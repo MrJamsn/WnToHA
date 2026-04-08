@@ -21,6 +21,7 @@ class WNSmartMeterCoordinator(DataUpdateCoordinator):
         hass: HomeAssistant,
         client,
         scan_interval: int,
+        zaehlpunktnummer: str | None = None,
     ) -> None:
         """Initialize coordinator."""
         super().__init__(
@@ -31,6 +32,7 @@ class WNSmartMeterCoordinator(DataUpdateCoordinator):
         )
         self.client = client
         self.zaehlpunkte: list[dict] = []
+        self.zaehlpunktnummer = zaehlpunktnummer
         self._tz = ZoneInfo(VIENNA_TZ)
 
     async def _async_update_data(self) -> dict:
@@ -38,9 +40,16 @@ class WNSmartMeterCoordinator(DataUpdateCoordinator):
         try:
             # Fetch Zaehlpunkte on first run
             if not self.zaehlpunkte:
-                self.zaehlpunkte = await self.hass.async_add_executor_job(
+                all_zp = await self.hass.async_add_executor_job(
                     self.client.get_anlagendaten
                 )
+                if self.zaehlpunktnummer:
+                    self.zaehlpunkte = [
+                        zp for zp in all_zp
+                        if (zp.get("zaehlpunktnummer") or zp.get("zaehlpunkt")) == self.zaehlpunktnummer
+                    ]
+                else:
+                    self.zaehlpunkte = all_zp
                 _LOGGER.debug("Fetched %d Zaehlpunkte", len(self.zaehlpunkte))
 
             # Fetch quarter hour values for yesterday and today

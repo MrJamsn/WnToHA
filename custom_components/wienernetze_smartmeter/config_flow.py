@@ -17,9 +17,12 @@ _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
+        vol.Required("username"): str,
+        vol.Required("password"): str,
         vol.Required("client_id"): str,
         vol.Required("client_secret"): str,
         vol.Required("api_key"): str,
+        vol.Optional("zaehlpunktnummer"): str,
         vol.Optional("scan_interval", default=DEFAULT_SCAN_INTERVAL): vol.All(
             int, vol.Range(min=15, max=60)
         ),
@@ -34,6 +37,8 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     try:
         client = await hass.async_add_executor_job(
             lambda: WNAPIClient(
+                username=data["username"],
+                password=data["password"],
                 client_id=data["client_id"],
                 client_secret=data["client_secret"],
                 api_key=data["api_key"],
@@ -48,6 +53,16 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     if not zaehlpunkte:
         raise CannotConnect("No Zaehlpunkte returned")
+
+    # Validate specified Zaehlpunktnummer exists
+    zp_nr = data.get("zaehlpunktnummer", "").strip()
+    if zp_nr:
+        known = [
+            zp.get("zaehlpunktnummer") or zp.get("zaehlpunkt")
+            for zp in zaehlpunkte
+        ]
+        if zp_nr not in known:
+            raise InvalidZaehlpunkt(f"{zp_nr} not found in account")
 
     return {"zaehlpunkte": zaehlpunkte}
 
@@ -70,6 +85,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
+            except InvalidZaehlpunkt:
+                errors["zaehlpunktnummer"] = "invalid_zaehlpunkt"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -94,3 +111,7 @@ class CannotConnect(HomeAssistantError):
 
 class InvalidAuth(HomeAssistantError):
     """Error to indicate there is invalid auth."""
+
+
+class InvalidZaehlpunkt(HomeAssistantError):
+    """Error to indicate the specified Zaehlpunktnummer was not found."""
