@@ -12,7 +12,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -96,6 +96,18 @@ class WNSmartMeterSensor(CoordinatorEntity, SensorEntity):
         self._attr_name   = name
         self._attr_unique_id = f"{DOMAIN}_{zp_nummer}_{obis}_{sensor_type}"
         self._tz          = ZoneInfo(VIENNA_TZ)
+        self._last_zeitBis: str | None = None
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Only write a new state when genuinely new data has arrived."""
+        data = self._zaehlwerk_data
+        if data:
+            new_zeitBis = data.get("latest_zeitBis")
+            if new_zeitBis is not None and new_zeitBis == self._last_zeitBis:
+                return  # same reading as last poll — skip, avoids duplicate history entries
+            self._last_zeitBis = new_zeitBis
+        self.async_write_ha_state()
 
     @property
     def _zaehlwerk_data(self) -> dict | None:
