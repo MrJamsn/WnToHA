@@ -8,7 +8,6 @@ from zoneinfo import ZoneInfo
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
-    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
@@ -76,9 +75,9 @@ async def async_setup_entry(
 class WNSmartMeterSensor(CoordinatorEntity, SensorEntity):
     """Sensor entity for Wiener Netze Smart Meter."""
 
-    _attr_device_class    = SensorDeviceClass.ENERGY
-    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_state_class     = SensorStateClass.TOTAL_INCREASING
+    _attr_device_class                = SensorDeviceClass.ENERGY
+    _attr_native_unit_of_measurement  = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_state_class                 = None  # no auto-statistics — Energy Dashboard uses external statistics with correct zeitBis timestamps
 
     def __init__(
         self,
