@@ -52,13 +52,14 @@ class WNSmartMeterCoordinator(DataUpdateCoordinator):
                     self.zaehlpunkte = all_zp
                 _LOGGER.debug("Fetched %d Zaehlpunkte", len(self.zaehlpunkte))
 
-            # Fetch quarter hour values for yesterday and today
-            heute   = datetime.now(self._tz).strftime("%Y-%m-%d")
-            gestern = (datetime.now(self._tz) - timedelta(days=1)).strftime("%Y-%m-%d")
+            # Fetch quarter hour values — 3-day window to ensure data is
+            # available even with Wiener Netze's 1-24h delivery delay
+            heute      = datetime.now(self._tz).strftime("%Y-%m-%d")
+            drei_tage  = (datetime.now(self._tz) - timedelta(days=3)).strftime("%Y-%m-%d")
 
             raw = await self.hass.async_add_executor_job(
                 lambda: self.client.get_quarter_hour_values(
-                    date_from=gestern,
+                    date_from=drei_tage,
                     date_to=heute,
                 )
             )
