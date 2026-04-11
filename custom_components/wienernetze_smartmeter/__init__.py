@@ -18,25 +18,25 @@ PLATFORMS = ["sensor"]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Wiener Netze Smart Meter from a config entry."""
-    from wiener_netze_smart_meter_api import WNAPIClient
+    from .api import WNAPIClient
 
     try:
-        client = await hass.async_add_executor_job(
-            lambda: WNAPIClient(
-                client_id=entry.data["client_id"],
-                client_secret=entry.data["client_secret"],
-                api_key=entry.data["api_key"],
-            )
+        client = WNAPIClient(
+            client_id=entry.data["client_id"],
+            client_secret=entry.data["client_secret"],
+            api_key=entry.data["api_key"],
         )
     except Exception as exc:
         raise ConfigEntryNotReady(f"Cannot connect to Wiener Netze API: {exc}") from exc
 
     scan_interval = entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL)
+    zaehlpunktnummer = entry.data.get("zaehlpunktnummer", "").strip() or None
 
     coordinator = WNSmartMeterCoordinator(
         hass=hass,
         client=client,
         scan_interval=scan_interval,
+        zaehlpunktnummer=zaehlpunktnummer,
     )
 
     hass.data.setdefault(DOMAIN, {})
@@ -46,11 +46,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Backfill last 30 days on first setup
     async def _backfill(event=None):
-        zaehlpunkte = await hass.async_add_executor_job(client.get_anlagendaten)
-        for zp in zaehlpunkte:
-            zp_nr = zp.get("zaehlpunktnummer") or zp.get("zaehlpunkt")
-            if zp_nr:
-                await async_backfill_statistics(hass, client, zp_nr, days=30)
+        if zaehlpunktnummer:
+            # Use the configured Zaehlpunktnummer directly
+            await async_backfill_statistics(hass, client, zaehlpunktnummer, days=30)
+        else:
+            zaehlpunkte = await hass.async_add_executor_job(client.get_anlagendaten)
+            for zp in zaehlpunkte:
+                zp_nr = zp.get("zaehlpunktnummer") or zp.get("zaehlpunkt")
+                if zp_nr:
+                    await async_backfill_statistics(hass, client, zp_nr, days=30)
 
     hass.async_create_task(_backfill())
 

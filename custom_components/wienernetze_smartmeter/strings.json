@@ -8,6 +8,7 @@
           "client_id": "Client ID",
           "client_secret": "Client Secret",
           "api_key": "API Key (x-Gateway-APIKey)",
+          "zaehlpunktnummer": "Zählerpunktnummer (optional)",
           "scan_interval": "Aktualisierungsintervall (Minuten)"
         }
       }
@@ -15,6 +16,7 @@
     "error": {
       "cannot_connect": "Verbindung fehlgeschlagen - API nicht erreichbar",
       "invalid_auth": "Authentifizierung fehlgeschlagen - Zugangsdaten prüfen",
+      "invalid_zaehlpunkt": "Zählerpunktnummer nicht im Konto gefunden",
       "unknown": "Unbekannter Fehler"
     },
     "abort": {
