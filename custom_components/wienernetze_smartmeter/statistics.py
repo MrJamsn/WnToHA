@@ -49,7 +49,7 @@ async def async_insert_statistics(
             coordinator,
             zp_nummer,
             zaehlwerke[OBIS_CONSUMPTION],
-            statistic_id=f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer}",
+            statistic_id=f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer.lower()}",
             name=f"Smart Meter Bezug {zp_nummer[-6:]}",
         )
 
@@ -60,7 +60,7 @@ async def async_insert_statistics(
             coordinator,
             zp_nummer,
             zaehlwerke[OBIS_FEEDIN],
-            statistic_id=f"{STATISTIC_ID_FEEDIN}_{zp_nummer}",
+            statistic_id=f"{STATISTIC_ID_FEEDIN}_{zp_nummer.lower()}",
             name=f"Smart Meter Einspeisung {zp_nummer[-6:]}",
         )
 
@@ -187,10 +187,10 @@ async def async_backfill_statistics(
             messwerte = zaehlwerk.get("messwerte", [])
 
             if obis == OBIS_CONSUMPTION:
-                stat_id = f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer}"
+                stat_id = f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer.lower()}"
                 stat_name = f"Smart Meter Bezug {zp_nummer[-6:]}"
             elif obis == OBIS_FEEDIN:
-                stat_id = f"{STATISTIC_ID_FEEDIN}_{zp_nummer}"
+                stat_id = f"{STATISTIC_ID_FEEDIN}_{zp_nummer.lower()}"
                 stat_name = f"Smart Meter Einspeisung {zp_nummer[-6:]}"
             else:
                 continue
