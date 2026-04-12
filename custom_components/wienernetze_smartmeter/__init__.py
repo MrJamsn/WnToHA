@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
+from .const import DOMAIN, DEFAULT_SCAN_INTERVAL, DEFAULT_BACKFILL_DAYS
 from .coordinator import WNSmartMeterCoordinator
 from .statistics import async_backfill_statistics
 
@@ -44,17 +44,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Backfill last 30 days on first setup
+    backfill_days = entry.data.get("backfill_days", DEFAULT_BACKFILL_DAYS)
+
     async def _backfill(event=None):
         if zaehlpunktnummer:
-            # Use the configured Zaehlpunktnummer directly
-            await async_backfill_statistics(hass, client, zaehlpunktnummer, days=30)
+            await async_backfill_statistics(hass, client, zaehlpunktnummer, days=backfill_days)
         else:
             zaehlpunkte = await hass.async_add_executor_job(client.get_anlagendaten)
             for zp in zaehlpunkte:
                 zp_nr = zp.get("zaehlpunktnummer") or zp.get("zaehlpunkt")
                 if zp_nr:
-                    await async_backfill_statistics(hass, client, zp_nr, days=30)
+                    await async_backfill_statistics(hass, client, zp_nr, days=backfill_days)
 
     hass.async_create_task(_backfill())
 

@@ -1,7 +1,8 @@
 """Constants for the Wiener Netze Smart Meter integration."""
 
 DOMAIN = "wienernetze_smartmeter"
-DEFAULT_SCAN_INTERVAL = 30  # minutes
+DEFAULT_SCAN_INTERVAL = 30    # minutes
+DEFAULT_BACKFILL_DAYS = 1095  # ~3 years, max available from API
 
 VIENNA_TZ = "Europe/Vienna"
 

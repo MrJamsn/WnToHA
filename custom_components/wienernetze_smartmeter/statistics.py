@@ -157,41 +157,55 @@ async def async_backfill_statistics(
     hass: HomeAssistant,
     client,
     zp_nummer: str,
-    days: int = 30,
+    days: int = 1095,
+    chunk_days: int = 90,
 ) -> None:
-    """Backfill historical statistics on first setup."""
-    _LOGGER.info("Starting backfill for %s (%d days)", zp_nummer, days)
-    tz  = ZoneInfo(VIENNA_TZ)
-    von = (datetime.now(tz) - timedelta(days=days)).strftime("%Y-%m-%d")
-    bis = datetime.now(tz).strftime("%Y-%m-%d")
+    """Backfill historical statistics, chunked to avoid API timeouts.
 
-    try:
-        raw = await hass.async_add_executor_job(
-            lambda: client.get_quarter_hour_values(date_from=von, date_to=bis)
-        )
-    except Exception as exc:
-        _LOGGER.error("Backfill fetch failed for %s: %s", zp_nummer, exc)
-        return
+    Fetches data in chunk_days-sized windows from oldest to newest so that
+    large date ranges (e.g. 3 years) don't time out in a single API call.
+    """
+    _LOGGER.info("Starting backfill for %s (%d days, chunks of %d)", zp_nummer, days, chunk_days)
+    tz       = ZoneInfo(VIENNA_TZ)
+    end_date = datetime.now(tz).date()
+    start_date = end_date - timedelta(days=days)
 
-    for zp_data in raw:
-        if zp_data.get("zaehlpunkt") != zp_nummer:
+    chunk_start = start_date
+    while chunk_start < end_date:
+        chunk_end = min(chunk_start + timedelta(days=chunk_days), end_date)
+        von = chunk_start.strftime("%Y-%m-%d")
+        bis = chunk_end.strftime("%Y-%m-%d")
+
+        try:
+            raw = await hass.async_add_executor_job(
+                lambda v=von, b=bis: client.get_quarter_hour_values(date_from=v, date_to=b)
+            )
+        except Exception as exc:
+            _LOGGER.error("Backfill chunk %s–%s failed for %s: %s", von, bis, zp_nummer, exc)
+            chunk_start = chunk_end
             continue
 
-        for zaehlwerk in zp_data.get("zaehlwerke", []):
-            obis      = zaehlwerk.get("obisCode", "")
-            messwerte = zaehlwerk.get("messwerte", [])
-
-            if obis == OBIS_CONSUMPTION:
-                stat_id   = f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer.lower()}"
-                stat_name = f"Smart Meter Bezug {zp_nummer[-6:]}"
-            elif obis == OBIS_FEEDIN:
-                stat_id   = f"{STATISTIC_ID_FEEDIN}_{zp_nummer.lower()}"
-                stat_name = f"Smart Meter Einspeisung {zp_nummer[-6:]}"
-            else:
+        for zp_data in raw:
+            if zp_data.get("zaehlpunkt") != zp_nummer:
                 continue
+            for zaehlwerk in zp_data.get("zaehlwerke", []):
+                obis      = zaehlwerk.get("obisCode", "")
+                messwerte = zaehlwerk.get("messwerte", [])
 
-            await _insert_zaehlwerk_statistics(
-                hass, messwerte, statistic_id=stat_id, name=stat_name
-            )
+                if obis == OBIS_CONSUMPTION:
+                    stat_id   = f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer.lower()}"
+                    stat_name = f"Smart Meter Bezug {zp_nummer[-6:]}"
+                elif obis == OBIS_FEEDIN:
+                    stat_id   = f"{STATISTIC_ID_FEEDIN}_{zp_nummer.lower()}"
+                    stat_name = f"Smart Meter Einspeisung {zp_nummer[-6:]}"
+                else:
+                    continue
+
+                await _insert_zaehlwerk_statistics(
+                    hass, messwerte, statistic_id=stat_id, name=stat_name
+                )
+
+        _LOGGER.debug("Backfill chunk %s–%s done for %s", von, bis, zp_nummer)
+        chunk_start = chunk_end
 
     _LOGGER.info("Backfill complete for %s", zp_nummer)
