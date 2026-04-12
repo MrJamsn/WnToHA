@@ -9,7 +9,8 @@
           "client_secret": "Client Secret",
           "api_key": "API Key (x-Gateway-APIKey)",
           "zaehlpunktnummer": "Zählerpunktnummer (optional)",
-          "scan_interval": "Aktualisierungsintervall (Minuten)"
+          "scan_interval": "Aktualisierungsintervall (Minuten)",
+          "backfill_days": "Historische Daten laden (Tage)"
         }
       }
     },

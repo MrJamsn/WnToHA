@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
+from .const import DOMAIN, DEFAULT_SCAN_INTERVAL, DEFAULT_BACKFILL_DAYS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +23,9 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional("zaehlpunktnummer"): str,
         vol.Optional("scan_interval", default=DEFAULT_SCAN_INTERVAL): vol.All(
             int, vol.Range(min=15, max=60)
+        ),
+        vol.Optional("backfill_days", default=DEFAULT_BACKFILL_DAYS): vol.In(
+            [30, 90, 365, 1095]
         ),
     }
 )
