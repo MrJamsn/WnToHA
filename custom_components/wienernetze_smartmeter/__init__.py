@@ -7,13 +7,37 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import DOMAIN, DEFAULT_SCAN_INTERVAL, DEFAULT_BACKFILL_DAYS
+from .const import DOMAIN, DEFAULT_SCAN_INTERVAL, DEFAULT_BACKFILL_DAYS, STATISTIC_ID_CONSUMPTION
 from .coordinator import WNSmartMeterCoordinator
 from .statistics import async_backfill_statistics
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = ["sensor"]
+
+# How many days to catch up when statistics already exist
+_CATCHUP_DAYS = 7
+
+
+async def _backfill_days_needed(hass: HomeAssistant, zp_nummer: str, full_days: int) -> int:
+    """Return how many days to backfill.
+
+    If no statistics exist yet, return full_days (initial load).
+    If statistics already exist, return _CATCHUP_DAYS to fill recent gaps only.
+    """
+    from homeassistant.components.recorder import get_instance
+    from homeassistant.components.recorder.statistics import get_last_statistics
+
+    stat_id = f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer.lower()}"
+    last_stats = await get_instance(hass).async_add_executor_job(
+        get_last_statistics, hass, 1, stat_id, True, {"sum"}
+    )
+    if last_stats and stat_id in last_stats:
+        _LOGGER.debug("Statistics exist for %s — running %d-day catch-up only", zp_nummer, _CATCHUP_DAYS)
+        return _CATCHUP_DAYS
+
+    _LOGGER.info("No statistics found for %s — running full %d-day backfill", zp_nummer, full_days)
+    return full_days
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -47,14 +71,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     backfill_days = int(entry.data.get("backfill_days", DEFAULT_BACKFILL_DAYS))
 
     async def _backfill(event=None):
-        if zaehlpunktnummer:
-            await async_backfill_statistics(hass, client, zaehlpunktnummer, days=backfill_days)
-        else:
-            zaehlpunkte = await hass.async_add_executor_job(client.get_anlagendaten)
-            for zp in zaehlpunkte:
-                zp_nr = zp.get("zaehlpunktnummer") or zp.get("zaehlpunkt")
-                if zp_nr:
-                    await async_backfill_statistics(hass, client, zp_nr, days=backfill_days)
+        zp_list = (
+            [zaehlpunktnummer]
+            if zaehlpunktnummer
+            else [
+                zp.get("zaehlpunktnummer") or zp.get("zaehlpunkt")
+                for zp in await hass.async_add_executor_job(client.get_anlagendaten)
+                if zp.get("zaehlpunktnummer") or zp.get("zaehlpunkt")
+            ]
+        )
+        for zp_nr in zp_list:
+            days = await _backfill_days_needed(hass, zp_nr, backfill_days)
+            await async_backfill_statistics(hass, client, zp_nr, days=days)
 
     hass.async_create_task(_backfill())
 
