@@ -10,14 +10,6 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.selector import (
-    NumberSelector,
-    NumberSelectorConfig,
-    NumberSelectorMode,
-    SelectSelector,
-    SelectSelectorConfig,
-    SelectSelectorMode,
-)
 
 from .const import DOMAIN, DEFAULT_SCAN_INTERVAL, DEFAULT_BACKFILL_DAYS
 
@@ -29,28 +21,13 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required("client_secret"): str,
         vol.Required("api_key"): str,
         vol.Optional("zaehlpunktnummer"): str,
-        vol.Optional("scan_interval", default=DEFAULT_SCAN_INTERVAL): NumberSelector(
-            NumberSelectorConfig(
-                min=15,
-                max=60,
-                step=5,
-                unit_of_measurement="min",
-                mode=NumberSelectorMode.SLIDER,
-            )
+        vol.Optional("scan_interval", default=DEFAULT_SCAN_INTERVAL): vol.All(
+            int, vol.Range(min=15, max=60)
         ),
-        vol.Optional("backfill_days", default=str(DEFAULT_BACKFILL_DAYS)): SelectSelector(
-            SelectSelectorConfig(
-                options=[
-                    {"value": "30",   "label": "30 Tage (1 Monat)"},
-                    {"value": "90",   "label": "90 Tage (3 Monate)"},
-                    {"value": "365",  "label": "365 Tage (1 Jahr)"},
-                    {"value": "1095", "label": "~3 Jahre (alles verfügbare)"},
-                ],
-                mode=SelectSelectorMode.LIST,
-            )
+        vol.Optional("backfill_days", default=DEFAULT_BACKFILL_DAYS): vol.In(
+            [30, 90, 365, 1095]
         ),
     }
-)
 )
 
 
