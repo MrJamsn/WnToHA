@@ -14,7 +14,6 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
-    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -42,10 +41,10 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional("backfill_days", default=str(DEFAULT_BACKFILL_DAYS)): SelectSelector(
             SelectSelectorConfig(
                 options=[
-                    SelectOptionDict(value="30",   label="30 Tage (1 Monat)"),
-                    SelectOptionDict(value="90",   label="90 Tage (3 Monate)"),
-                    SelectOptionDict(value="365",  label="365 Tage (1 Jahr)"),
-                    SelectOptionDict(value="1095", label="~3 Jahre (alles verfügbare)"),
+                    {"value": "30",   "label": "30 Tage (1 Monat)"},
+                    {"value": "90",   "label": "90 Tage (3 Monate)"},
+                    {"value": "365",  "label": "365 Tage (1 Jahr)"},
+                    {"value": "1095", "label": "~3 Jahre (alles verfügbare)"},
                 ],
                 mode=SelectSelectorMode.LIST,
             )
