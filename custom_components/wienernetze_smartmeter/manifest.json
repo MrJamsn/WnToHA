@@ -1,7 +1,7 @@
 {
   "domain": "wienernetze_smartmeter",
   "name": "Wiener Netze Smart Meter",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "documentation": "https://github.com/MrJamsn/WnToHA",
   "issue_tracker": "https://github.com/MrJamsn/WnToHA/issues",
   "codeowners": ["@MrJamsn"],
