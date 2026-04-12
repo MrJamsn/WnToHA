@@ -1,8 +1,10 @@
-# Wiener Netze Smart Meter - Home Assistant Integration
+# Wiener Netze Smart Meter Home Assistant Integration – Stromverbrauch im Energy Dashboard
+
+![Wiener Netze Smart Meter](custom_components/wienernetze_smartmeter/images/icon.png)
 
 > **Hinweis:** Diese Integration wurde vibe-coded – mit Unterstützung von KI-Tools entwickelt. Der Code funktioniert, aber lies ihn mit gesundem Menschenverstand. ;)
 
-Custom Integration für Home Assistant zur Einbindung des Wiener Netze Smart Meters über die offizielle Public API.
+**Wiener Netze Smart Meter** in Home Assistant einbinden – Stromverbrauch, Einspeisung und historische Verbrauchsdaten direkt im Energy Dashboard. Nutzt die offizielle Wiener Netze / Wiener Stadtwerke Public API.
 
 ## Features
 

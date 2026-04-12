@@ -29,7 +29,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as exc:
         raise ConfigEntryNotReady(f"Cannot connect to Wiener Netze API: {exc}") from exc
 
-    scan_interval = entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL)
+    scan_interval    = int(entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL))
     zaehlpunktnummer = entry.data.get("zaehlpunktnummer", "").strip() or None
 
     coordinator = WNSmartMeterCoordinator(
@@ -44,7 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    backfill_days = entry.data.get("backfill_days", DEFAULT_BACKFILL_DAYS)
+    backfill_days = int(entry.data.get("backfill_days", DEFAULT_BACKFILL_DAYS))
 
     async def _backfill(event=None):
         if zaehlpunktnummer:
