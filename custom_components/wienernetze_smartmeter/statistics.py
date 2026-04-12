@@ -1,7 +1,8 @@
-"""Statistics insertion for Wiener Netze Smart Meter - 15-min values with correct timestamps."""
+"""Statistics insertion for Wiener Netze Smart Meter."""
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -10,7 +11,6 @@ from homeassistant.components.recorder.models import StatisticData, StatisticMet
 from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
     get_last_statistics,
-    statistics_during_period,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
@@ -26,8 +26,30 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-UNIT_WH  = "Wh"
 UNIT_KWH = "kWh"
+
+# HA 2025+ requires mean_type instead of has_mean
+try:
+    from homeassistant.components.recorder.statistics import StatisticMeanType
+    _MEAN_TYPE_NONE = StatisticMeanType.NONE
+except ImportError:
+    _MEAN_TYPE_NONE = None
+
+
+def _make_metadata(statistic_id: str, name: str) -> StatisticMetaData:
+    """Build StatisticMetaData compatible with both old and new HA versions."""
+    kwargs: dict = dict(
+        has_sum=True,
+        name=name,
+        source=DOMAIN,
+        statistic_id=statistic_id,
+        unit_of_measurement=UNIT_KWH,
+    )
+    if _MEAN_TYPE_NONE is not None:
+        kwargs["mean_type"] = _MEAN_TYPE_NONE
+    else:
+        kwargs["has_mean"] = False
+    return StatisticMetaData(**kwargs)
 
 
 async def async_insert_statistics(
@@ -35,31 +57,25 @@ async def async_insert_statistics(
     coordinator,
     zp_nummer: str,
 ) -> None:
-    """Insert 15-min statistics with correct timestamps into HA recorder."""
+    """Insert hourly statistics for one Zaehlpunkt into HA recorder."""
     data = coordinator.data
     if not data or zp_nummer not in data:
         return
 
     zaehlwerke = data[zp_nummer].get("zaehlwerke", {})
 
-    # Consumption (Bezug)
     if OBIS_CONSUMPTION in zaehlwerke:
         await _insert_zaehlwerk_statistics(
             hass,
-            coordinator,
-            zp_nummer,
-            zaehlwerke[OBIS_CONSUMPTION],
+            zaehlwerke[OBIS_CONSUMPTION]["messwerte"],
             statistic_id=f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer.lower()}",
             name=f"Smart Meter Bezug {zp_nummer[-6:]}",
         )
 
-    # Feed-in (Einspeisung) - only if present
     if OBIS_FEEDIN in zaehlwerke:
         await _insert_zaehlwerk_statistics(
             hass,
-            coordinator,
-            zp_nummer,
-            zaehlwerke[OBIS_FEEDIN],
+            zaehlwerke[OBIS_FEEDIN]["messwerte"],
             statistic_id=f"{STATISTIC_ID_FEEDIN}_{zp_nummer.lower()}",
             name=f"Smart Meter Einspeisung {zp_nummer[-6:]}",
         )
@@ -67,16 +83,15 @@ async def async_insert_statistics(
 
 async def _insert_zaehlwerk_statistics(
     hass: HomeAssistant,
-    coordinator,
-    zp_nummer: str,
-    zaehlwerk_data: dict,
+    messwerte: list,
     statistic_id: str,
     name: str,
 ) -> None:
-    """Insert statistics for one Zaehlwerk."""
-    tz       = ZoneInfo(VIENNA_TZ)
-    messwerte = zaehlwerk_data.get("messwerte", [])
+    """Aggregate 15-min messwerte into hourly buckets and write to recorder.
 
+    HA statistics require top-of-hour timestamps (minutes=0, seconds=0).
+    Each messwert's zeitVon determines which hour bucket it belongs to.
+    """
     if not messwerte:
         return
 
@@ -92,63 +107,49 @@ async def _insert_zaehlwerk_statistics(
         last_entry = last_stats[statistic_id][0]
         last_sum   = last_entry.get("sum", 0.0) or 0.0
         last_dt    = dt_util.utc_from_timestamp(last_entry["start"])
-        _LOGGER.debug(
-            "Last statistic for %s: sum=%.3f kWh at %s",
-            statistic_id, last_sum, last_dt
-        )
+        _LOGGER.debug("Last statistic for %s: sum=%.3f kWh at %s", statistic_id, last_sum, last_dt)
 
-    # Build StatisticData list - only new entries
+    # Aggregate 15-min values into hourly buckets (HA requires top-of-hour timestamps)
+    hourly_wh: dict[datetime, float] = defaultdict(float)
+
+    for m in messwerte:
+        try:
+            if m.get("qualitaet") not in ("VAL", "EST", None, ""):
+                continue
+
+            # Use zeitVon to determine the hour; fall back to zeitBis - 15 min
+            if "zeitVon" in m:
+                zeit_von = datetime.fromisoformat(m["zeitVon"].replace("Z", "+00:00"))
+            else:
+                zeit_bis = datetime.fromisoformat(m["zeitBis"].replace("Z", "+00:00"))
+                zeit_von = zeit_bis - timedelta(minutes=15)
+
+            hour_start = zeit_von.replace(minute=0, second=0, microsecond=0)
+            hourly_wh[hour_start] += float(m["messwert"])
+
+        except Exception as exc:
+            _LOGGER.warning("Error processing messwert %s: %s", m, exc)
+
+    # Build StatisticData list — only new hourly entries
     statistics: list[StatisticData] = []
     running_sum = last_sum
 
-    for messwert in messwerte:
-        try:
-            # zeitBis is the end of the 15-min interval - use as the stat timestamp
-            zeit_bis_utc = datetime.fromisoformat(
-                messwert["zeitBis"].replace("Z", "+00:00")
-            )
-
-            # Skip already stored entries
-            if last_dt and zeit_bis_utc <= last_dt:
-                continue
-
-            # Skip invalid quality
-            if messwert.get("qualitaet") not in ("VAL", "EST", None, ""):
-                _LOGGER.debug("Skipping messwert with qualitaet=%s", messwert.get("qualitaet"))
-                continue
-
-            wh_value  = float(messwert["messwert"])
-            kwh_value = wh_value / 1000.0
-            running_sum += kwh_value
-
-            statistics.append(
-                StatisticData(
-                    start=zeit_bis_utc,
-                    state=kwh_value,
-                    sum=running_sum,
-                )
-            )
-        except Exception as exc:
-            _LOGGER.warning("Error parsing messwert %s: %s", messwert, exc)
+    for hour_start in sorted(hourly_wh.keys()):
+        if last_dt and hour_start <= last_dt:
             continue
+
+        kwh_value = hourly_wh[hour_start] / 1000.0
+        running_sum += kwh_value
+        statistics.append(StatisticData(start=hour_start, state=kwh_value, sum=running_sum))
 
     if not statistics:
         _LOGGER.debug("No new statistics to insert for %s", statistic_id)
         return
 
-    metadata = StatisticMetaData(
-        has_mean=False,
-        has_sum=True,
-        name=name,
-        source=DOMAIN,
-        statistic_id=statistic_id,
-        unit_of_measurement=UNIT_KWH,
-    )
-
-    async_add_external_statistics(hass, metadata, statistics)
+    async_add_external_statistics(hass, _make_metadata(statistic_id, name), statistics)
     _LOGGER.info(
-        "Inserted %d new statistics for %s (sum now: %.3f kWh)",
-        len(statistics), statistic_id, running_sum
+        "Inserted %d hourly statistics for %s (sum now: %.3f kWh)",
+        len(statistics), statistic_id, running_sum,
     )
 
 
@@ -160,48 +161,37 @@ async def async_backfill_statistics(
 ) -> None:
     """Backfill historical statistics on first setup."""
     _LOGGER.info("Starting backfill for %s (%d days)", zp_nummer, days)
-    tz      = ZoneInfo(VIENNA_TZ)
-    heute   = datetime.now(tz)
-    von     = (heute - timedelta(days=days)).strftime("%Y-%m-%d")
-    bis     = heute.strftime("%Y-%m-%d")
+    tz  = ZoneInfo(VIENNA_TZ)
+    von = (datetime.now(tz) - timedelta(days=days)).strftime("%Y-%m-%d")
+    bis = datetime.now(tz).strftime("%Y-%m-%d")
 
     try:
         raw = await hass.async_add_executor_job(
-            lambda: client.get_quarter_hour_values(
-                date_from=von,
-                date_to=bis,
-            )
+            lambda: client.get_quarter_hour_values(date_from=von, date_to=bis)
         )
     except Exception as exc:
         _LOGGER.error("Backfill fetch failed for %s: %s", zp_nummer, exc)
         return
 
-    # Build a fake coordinator-like data structure and re-use insert logic
     for zp_data in raw:
         if zp_data.get("zaehlpunkt") != zp_nummer:
             continue
 
         for zaehlwerk in zp_data.get("zaehlwerke", []):
             obis      = zaehlwerk.get("obisCode", "")
-            einheit   = zaehlwerk.get("einheit", "WH")
             messwerte = zaehlwerk.get("messwerte", [])
 
             if obis == OBIS_CONSUMPTION:
-                stat_id = f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer.lower()}"
+                stat_id   = f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer.lower()}"
                 stat_name = f"Smart Meter Bezug {zp_nummer[-6:]}"
             elif obis == OBIS_FEEDIN:
-                stat_id = f"{STATISTIC_ID_FEEDIN}_{zp_nummer.lower()}"
+                stat_id   = f"{STATISTIC_ID_FEEDIN}_{zp_nummer.lower()}"
                 stat_name = f"Smart Meter Einspeisung {zp_nummer[-6:]}"
             else:
                 continue
 
             await _insert_zaehlwerk_statistics(
-                hass,
-                None,
-                zp_nummer,
-                {"messwerte": messwerte},
-                statistic_id=stat_id,
-                name=stat_name,
+                hass, messwerte, statistic_id=stat_id, name=stat_name
             )
 
     _LOGGER.info("Backfill complete for %s", zp_nummer)
