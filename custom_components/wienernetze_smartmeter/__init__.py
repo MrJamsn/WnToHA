@@ -13,31 +13,19 @@ from .statistics import async_backfill_statistics
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor"]
-
-# How many days to catch up when statistics already exist
-_CATCHUP_DAYS = 7
+PLATFORMS = ["sensor", "button"]
 
 
-async def _backfill_days_needed(hass: HomeAssistant, zp_nummer: str, full_days: int) -> int:
-    """Return how many days to backfill.
-
-    If no statistics exist yet, return full_days (initial load).
-    If statistics already exist, return _CATCHUP_DAYS to fill recent gaps only.
-    """
+async def _has_statistics(hass: HomeAssistant, zp_nummer: str) -> bool:
+    """Return True if statistics already exist for this Zaehlpunkt."""
     from homeassistant.components.recorder import get_instance
     from homeassistant.components.recorder.statistics import get_last_statistics
 
-    stat_id = f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer.lower()}"
+    stat_id    = f"{STATISTIC_ID_CONSUMPTION}_{zp_nummer.lower()}"
     last_stats = await get_instance(hass).async_add_executor_job(
         get_last_statistics, hass, 1, stat_id, True, {"sum"}
     )
-    if last_stats and stat_id in last_stats:
-        _LOGGER.debug("Statistics exist for %s — running %d-day catch-up only", zp_nummer, _CATCHUP_DAYS)
-        return _CATCHUP_DAYS
-
-    _LOGGER.info("No statistics found for %s — running full %d-day backfill", zp_nummer, full_days)
-    return full_days
+    return bool(last_stats and stat_id in last_stats)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -81,8 +69,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             ]
         )
         for zp_nr in zp_list:
-            days = await _backfill_days_needed(hass, zp_nr, backfill_days)
-            await async_backfill_statistics(hass, client, zp_nr, days=days)
+            if await _has_statistics(hass, zp_nr):
+                _LOGGER.debug("Statistics exist for %s — skipping startup backfill (use button to re-run)", zp_nr)
+                continue
+            await async_backfill_statistics(hass, client, zp_nr, days=backfill_days)
 
     hass.async_create_task(_backfill())
 
