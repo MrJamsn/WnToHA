@@ -1,2 +1,0 @@
-Das Wiener Netze Logo hier als icon.png ablegen.
-HACS und Home Assistant suchen nach: custom_components/wienernetze_smartmeter/images/icon.png
